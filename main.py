@@ -73,6 +73,31 @@ if st.session_state.pagina == "Dashboard":
         st.progress(65)
         st.write("65% concluído - Aguardando parecer técnico.")
 
-elif st.session_state.pagina == "Processos":
-    st.title("📋 Processos")
-    st.write("Lista detalhada de protocolos.")
+elif st.session_state.pagina == "Documentos":
+    st.title("📂 Repositório de Documentos")
+    
+    if st.session_state.tipo == "cliente":
+        st.subheader("Enviar novos documentos")
+        st.write("Use o campo abaixo para nos enviar licenças, certificados ou documentos técnicos.")
+        
+        # Botão de Upload para o Cliente
+        arquivo_enviado = st.file_uploader(
+            "Selecione o arquivo (PDF, PNG, JPG)", 
+            type=["pdf", "png", "jpg", "jpeg"]
+        )
+        
+        if arquivo_enviado is not None:
+            st.success(f"Arquivo '{arquivo_enviado.name}' carregado com sucesso! Nossa equipe será notificada.")
+            # Aqui no futuro conectaremos com o seu Google Drive para salvar o arquivo de verdade
+            
+        st.markdown("---")
+        st.subheader("Seus Documentos Disponíveis")
+        st.write("📄 Licença de Funcionamento.pdf (Vence em 20/12)")
+        st.button("Baixar Arquivo")
+        
+    else:
+        # Visão do Admin na aba Documentos
+        st.subheader("Gestão de Documentos por Cliente")
+        st.write("Aqui você visualiza os documentos que seus clientes enviaram.")
+        st.selectbox("Selecionar Cliente", ["Farmacêutica XPTO", "Laboratório Alfa"])
+        st.info("Aguardando novos uploads dos clientes...")
