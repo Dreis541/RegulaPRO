@@ -73,31 +73,31 @@ if st.session_state.pagina == "Dashboard":
         st.progress(65)
         st.write("65% concluído - Aguardando parecer técnico.")
 
-elif st.session_state.pagina == "Documentos":
+    elif st.session_state.pagina == "Documentos":
     st.title("📂 Repositório de Documentos")
     
     if st.session_state.tipo == "cliente":
         st.subheader("Enviar novos documentos")
-        st.write("Use o campo abaixo para nos enviar licenças, certificados ou documentos técnicos.")
+        arquivo_enviado = st.file_uploader("Selecione o arquivo", type=["pdf", "png", "jpg"])
         
-        # Botão de Upload para o Cliente
-        arquivo_enviado = st.file_uploader(
-            "Selecione o arquivo (PDF, PNG, JPG)", 
-            type=["pdf", "png", "jpg", "jpeg"]
+        if arquivo_enviado:
+            st.success(f"Arquivo '{arquivo_enviado.name}' recebido!")
+
+        st.markdown("---")
+        st.subheader("Seus Documentos para Download")
+        
+        # Simulação de um arquivo para o botão funcionar
+        documento_exemplo = "Conteúdo do certificado gerado pelo RegulaPRO."
+        
+        # O BOTÃO REAL DE DOWNLOAD
+        st.download_button(
+            label="📄 Baixar Licença de Funcionamento (PDF)",
+            data=documento_exemplo,
+            file_name="licenca_anvisa_exemplo.pdf",
+            mime="application/pdf"
         )
         
-        if arquivo_enviado is not None:
-            st.success(f"Arquivo '{arquivo_enviado.name}' carregado com sucesso! Nossa equipe será notificada.")
-            # Aqui no futuro conectaremos com o seu Google Drive para salvar o arquivo de verdade
-            
-        st.markdown("---")
-        st.subheader("Seus Documentos Disponíveis")
-        st.write("📄 Licença de Funcionamento.pdf (Vence em 20/12)")
-        st.button("Baixar Arquivo")
-        
     else:
-        # Visão do Admin na aba Documentos
-        st.subheader("Gestão de Documentos por Cliente")
-        st.write("Aqui você visualiza os documentos que seus clientes enviaram.")
-        st.selectbox("Selecionar Cliente", ["Farmacêutica XPTO", "Laboratório Alfa"])
-        st.info("Aguardando novos uploads dos clientes...")
+        st.subheader("Gestão de Documentos (Admin)")
+        st.info("Aqui você poderá ver e baixar os arquivos enviados pelos clientes.")
+        st.selectbox("Selecione o cliente para ver os arquivos:", ["Farmacêutica XPTO", "Laboratório Alfa"])
