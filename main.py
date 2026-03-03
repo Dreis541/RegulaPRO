@@ -73,7 +73,7 @@ if st.session_state.pagina == "Dashboard":
         st.progress(65)
         st.write("65% concluído - Aguardando parecer técnico.")
 
-    elif st.session_state.pagina == "Documentos":
+elif st.session_state.pagina == "Documentos":
     st.title("📂 Repositório de Documentos")
     
     if st.session_state.tipo == "cliente":
