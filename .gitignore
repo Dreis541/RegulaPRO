@@ -15,6 +15,11 @@ htmlcov/
 # Dados / banco SQLite
 data/*.db
 data/*.db-journal
+data/tickets.json
+tickets.json
+
+# Segredos (usuários e senhas)
+.streamlit/secrets.toml
 
 # IDEs
 .vscode/

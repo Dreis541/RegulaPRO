@@ -5,7 +5,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import streamlit as st
-from config import APP_TITLE, APP_ICON, LAYOUT, USUARIOS
+from config import APP_TITLE, APP_ICON, LAYOUT
+from functions.auth import autenticar, carregar_usuarios
 
 # 1. CONFIGURAÇÃO (Primeira linha sempre)
 st.set_page_config(page_title=APP_TITLE, page_icon=APP_ICON, layout=LAYOUT)
@@ -35,18 +36,35 @@ if "logado" not in st.session_state:
 if "pagina" not in st.session_state:
     st.session_state.pagina = "Dashboard"
 
+
+def _ler_usuarios():
+    """Usuários vêm de .streamlit/secrets.toml (seção [usuarios])."""
+    try:
+        return carregar_usuarios(st.secrets.get("usuarios", {}))
+    except Exception:
+        return {}
+
+
 # 4. LOGIN
 if not st.session_state.logado:
     st.markdown('<div class="sidebar-title">Regula<span class="green-pro">Pro</span></div>', unsafe_allow_html=True)
     st.subheader("Login de Acesso")
+    usuarios = _ler_usuarios()
+    if not usuarios:
+        st.error(
+            "Nenhum usuário configurado. Crie o arquivo .streamlit/secrets.toml "
+            "a partir de .streamlit/secrets.toml.example."
+        )
+        st.stop()
     u = st.text_input("Usuário")
     p = st.text_input("Senha", type="password")
     if st.button("Entrar"):
-        if u in USUARIOS and USUARIOS[u]["senha"] == p:
+        dados = autenticar(usuarios, u, p)
+        if dados:
             st.session_state.logado = True
             st.session_state.user = u
-            st.session_state.tipo = USUARIOS[u]["tipo"]
-            st.session_state.nome = USUARIOS[u]["nome"]
+            st.session_state.tipo = dados["tipo"]
+            st.session_state.nome = dados["nome"]
             st.rerun()
         else:
             st.error("Usuário ou senha incorretos")
@@ -69,28 +87,31 @@ with st.sidebar:
         st.session_state.pagina = "Relatorios"
     if st.button("📂 Documentos"):
         st.session_state.pagina = "Documentos"
+    if st.button("🎫 Chamados"):
+        st.session_state.pagina = "Chamados"
     st.markdown("---")
     if st.button("🚪 Sair"):
-        st.session_state.logado = False
+        for chave in ("logado", "user", "tipo", "nome", "pagina"):
+            st.session_state.pop(chave, None)
         st.rerun()
 
 # 6. PÁGINAS
 pagina = st.session_state.pagina
 
 if pagina in ("Home", "Dashboard"):
-    from pages import home
+    from telas import home
     home.main()
 
 elif pagina == "Processos":
-    from pages import processos as pg_processos
+    from telas import processos as pg_processos
     pg_processos.main()
 
 elif pagina == "Acompanhamento":
-    from pages import acompanhamento
+    from telas import acompanhamento
     acompanhamento.main()
 
 elif pagina == "Relatorios":
-    from pages import relatorios
+    from telas import relatorios
     relatorios.main()
 
 elif pagina == "Documentos":
@@ -115,141 +136,6 @@ elif pagina == "Documentos":
         st.info("Aqui você poderá ver e baixar os arquivos enviados pelos clientes.")
         st.selectbox("Selecione o cliente para ver os arquivos:", ["Farmacêutica XPTO", "Laboratório Alfa"])
 
-
-
-# ===== MÓDULO DE TICKETS =====
-# Importar o sistema de tickets
-from functions.tickets import TicketManager, TicketStatus
-
-# Inicializar o gerenciador de tickets
-if 'ticket_manager' not in st.session_state:
-    st.session_state.ticket_manager = TicketManager()
-
-# ===== SEÇÃO DE TICKETS =====
-st.sidebar.markdown("---")
-st.sidebar.header("🎫 Sistema de Tickets")
-
-ticket_menu = st.sidebar.radio(
-    "Escolha uma opção:",
-    ["Criar Ticket", "Visualizar Tickets", "Gerenciar Tickets"]
-)
-
-if ticket_menu == "Criar Ticket":
-    st.header("🆕 Criar Novo Ticket")
-    
-    with st.form("form_novo_ticket"):
-        titulo = st.text_input("Título do Ticket")
-        descricao = st.text_area("Descrição detalhada")
-        cliente = st.text_input("Nome do Cliente")
-        prioridade = st.selectbox(
-            "Prioridade",
-            ["baixa", "media", "alta", "critica"]
-        )
-        
-        if st.form_submit_button("📤 Criar Ticket"):
-            if titulo and descricao and cliente:
-                ticket = st.session_state.ticket_manager.criar_ticket(
-                    titulo=titulo,
-                    descricao=descricao,
-                    cliente=cliente,
-                    prioridade=prioridade
-                )
-                st.success(f"✅ Ticket criado com ID: {ticket.id}")
-            else:
-                st.error("❌ Preencha todos os campos!")
-
-elif ticket_menu == "Visualizar Tickets":
-    st.header("📋 Visualizar Tickets")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        filtro_status = st.selectbox(
-            "Filtrar por Status",
-            ["Todos", "aberto", "em_progresso", "resolvido", "fechado"]
-        )
-    
-    with col2:
-        filtro_cliente = st.text_input("Filtrar por Cliente")
-    
-    # Aplicar filtros
-    status_filter = None if filtro_status == "Todos" else filtro_status
-    cliente_filter = filtro_cliente if filtro_cliente else None
-    
-    tickets = st.session_state.ticket_manager.listar_tickets(
-        status=status_filter,
-        cliente=cliente_filter
-    )
-    
-    if tickets:
-        for ticket in tickets:
-            with st.expander(f"🎫 {ticket.id} - {ticket.titulo}"):
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Status", ticket.status.upper())
-                with col2:
-                    st.metric("Prioridade", ticket.prioridade.upper())
-                with col3:
-                    st.metric("Cliente", ticket.cliente)
-                
-                st.write(f"**Descrição:** {ticket.descricao}")
-                st.write(f"**Criado em:** {ticket.data_criacao}")
-                
-                if ticket.atribuido_para:
-                    st.write(f"**Atribuído para:** {ticket.atribuido_para}")
-                
-                if ticket.comentarios:
-                    st.subheader("Comentários")
-                    for comentario in ticket.comentarios:
-                        st.write(f"**{comentario['autor']}** ({comentario['data']})")
-                        st.write(comentario['texto'])
-    else:
-        st.info("ℹ️ Nenhum ticket encontrado com os filtros aplicados.")
-
-elif ticket_menu == "Gerenciar Tickets":
-    st.header("⚙️ Gerenciar Tickets")
-    
-    ticket_id = st.text_input("ID do Ticket para gerenciar")
-    
-    if ticket_id:
-        ticket = st.session_state.ticket_manager.obter_ticket(ticket_id)
-        
-        if ticket:
-            st.success(f"✅ Ticket encontrado: {ticket.titulo}")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                novo_status = st.selectbox(
-                    "Novo Status",
-                    ["aberto", "em_progresso", "aguardando_cliente", "resolvido", "fechado"],
-                    index=0
-                )
-            
-            with col2:
-                novo_tecnico = st.text_input("Atribuir para (Técnico)")
-            
-            if st.button("💾 Atualizar Ticket"):
-                st.session_state.ticket_manager.atualizar_ticket(
-                    ticket_id,
-                    status=novo_status,
-                    atribuido_para=novo_tecnico if novo_tecnico else ticket.atribuido_para
-                )
-                st.success("✅ Ticket atualizado!")
-            
-            # Adicionar comentário
-            st.subheader("💬 Adicionar Comentário")
-            with st.form(f"form_comentario_{ticket_id}"):
-                autor = st.text_input("Seu nome")
-                comentario = st.text_area("Comentário")
-                
-                if st.form_submit_button("📝 Adicionar Comentário"):
-                    if autor and comentario:
-                        ticket.adicionar_comentario(autor, comentario)
-                        st.session_state.ticket_manager.salvar_tickets()
-                        st.success("✅ Comentário adicionado!")
-                    else:
-                        st.error("❌ Preencha todos os campos!")
-        else:
-            st.error("❌ Ticket não encontrado!")
+elif pagina == "Chamados":
+    from telas import chamados
+    chamados.main()

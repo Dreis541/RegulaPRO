@@ -10,16 +10,19 @@ RegulaPRO/
 ├── config.py                  # Configurações globais
 ├── requirements.txt           # Dependências
 ├── README.md                  # Este arquivo
-├── pages/                     # Páginas da aplicação
+├── telas/                     # Telas da aplicação (não use o nome pages/: o Streamlit cria links automáticos sem login)
 │   ├── home.py               # Dashboard principal
 │   ├── processos.py          # Listagem e criação de processos
 │   ├── acompanhamento.py     # Dashboard de acompanhamento
-│   └── relatorios.py         # Geração de relatórios
+│   ├── relatorios.py         # Geração de relatórios
+│   └── chamados.py           # Chamados de suporte
 ├── functions/                 # Lógica da aplicação
 │   ├── processos.py          # CRUD de processos
 │   ├── validacoes.py         # Validações ANVISA
 │   ├── database.py           # Operações com banco
-│   └── anvisa.py             # Dados e utilitários ANVISA
+│   ├── anvisa.py             # Dados e utilitários ANVISA
+│   ├── auth.py               # Login com senha em hash
+│   └── tickets.py            # Chamados de suporte
 ├── utils/                     # Funções auxiliares
 │   ├── formatadores.py       # Formatação de dados
 │   ├── helpers.py            # Funções auxiliares
@@ -51,13 +54,21 @@ python -m pytest tests/ -v
 python -m pytest tests/ --cov=functions --cov=utils  # com cobertura
 ```
 
-## Usuários padrão
+## Usuários e senhas
 
-| Usuário    | Senha | Tipo    |
-|------------|-------|---------|
-| admin      | 123   | admin   |
-| cliente01  | abc   | cliente |
-| cliente02  | xyz   | cliente |
+As senhas **não ficam no código**. Elas ficam em `.streamlit/secrets.toml`, que não vai para o Git, guardadas como hash.
+
+1. Copie o modelo:
+   ```bash
+   cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+   ```
+2. Gere o hash de cada senha e cole no campo `senha_hash`:
+   ```bash
+   python -m functions.auth "minha-senha-forte"
+   ```
+3. No Streamlit Cloud, cole o mesmo conteúdo em **Settings → Secrets**.
+
+Tipos de usuário: `admin` (vê e gerencia tudo) e `cliente` (vê só os próprios chamados).
 
 ## Funcionalidades
 
@@ -66,3 +77,4 @@ python -m pytest tests/ --cov=functions --cov=utils  # com cobertura
 - **Acompanhamento**: Filtros avançados, gráficos, cards de progresso, timeline de eventos
 - **Relatórios**: Filtros, métricas resumidas, exportação CSV
 - **Documentos**: Upload e download de arquivos
+- **Chamados**: clientes abrem e acompanham os próprios chamados; o admin vê todos, atribui técnico, muda status e comenta

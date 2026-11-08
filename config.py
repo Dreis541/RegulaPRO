@@ -12,9 +12,8 @@ APP_TITLE = "RegulaPRO"
 APP_ICON = "🏢"
 LAYOUT = "wide"
 
-# Usuários padrão (em produção, usar banco de dados com hash de senhas)
-USUARIOS = {
-    "admin": {"senha": "123", "tipo": "admin", "nome": "Administrador"},
-    "cliente01": {"senha": "abc", "tipo": "cliente", "nome": "Farmacêutica XPTO"},
-    "cliente02": {"senha": "xyz", "tipo": "cliente", "nome": "Laboratório Alfa"},
-}
+# Chamados de suporte
+TICKETS_PATH = os.path.join(DATA_DIR, "tickets.json")
+
+# Usuários: ficam em .streamlit/secrets.toml (seção [usuarios]), nunca no código.
+# Veja .streamlit/secrets.toml.example e functions/auth.py.

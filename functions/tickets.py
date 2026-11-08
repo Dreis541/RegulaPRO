@@ -4,6 +4,7 @@ Módulo para criar, atualizar e gerenciar tickets de suporte
 """
 
 import json
+import os
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -88,7 +89,10 @@ class Ticket:
 class TicketManager:
     """Gerenciador central de tickets"""
     
-    def __init__(self, arquivo_dados: str = "tickets.json"):
+    def __init__(self, arquivo_dados: Optional[str] = None):
+        if arquivo_dados is None:
+            from config import TICKETS_PATH
+            arquivo_dados = TICKETS_PATH
         self.arquivo_dados = arquivo_dados
         self.tickets: Dict[str, Ticket] = {}
         self.carregar_tickets()
@@ -153,6 +157,9 @@ class TicketManager:
             ticket_id: ticket.to_dict()
             for ticket_id, ticket in self.tickets.items()
         }
+        pasta = os.path.dirname(self.arquivo_dados)
+        if pasta:
+            os.makedirs(pasta, exist_ok=True)
         with open(self.arquivo_dados, "w", encoding="utf-8") as f:
             json.dump(dados, f, indent=2, ensure_ascii=False)
     
@@ -161,5 +168,22 @@ class TicketManager:
         try:
             with open(self.arquivo_dados, "r", encoding="utf-8") as f:
                 dados = json.load(f)
-                for**
-
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.tickets = {}
+            return
+
+        self.tickets = {}
+        for ticket_id, info in dados.items():
+            ticket = Ticket(
+                info.get("titulo", ""),
+                info.get("descricao", ""),
+                info.get("cliente", ""),
+                info.get("prioridade", "media"),
+            )
+            ticket.id = info.get("id", ticket_id)
+            ticket.status = info.get("status", ticket.status)
+            ticket.data_criacao = info.get("data_criacao", ticket.data_criacao)
+            ticket.data_atualizacao = info.get("data_atualizacao", ticket.data_atualizacao)
+            ticket.atribuido_para = info.get("atribuido_para")
+            ticket.comentarios = info.get("comentarios", [])
+            self.tickets[ticket.id] = ticket
