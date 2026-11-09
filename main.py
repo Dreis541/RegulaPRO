@@ -59,10 +59,10 @@ if not st.session_state.logado:
     u = st.text_input("Usuário")
     p = st.text_input("Senha", type="password")
     if st.button("Entrar"):
-        dados = autenticar(usuarios, u, p)
+        dados = autenticar(usuarios, u.strip(), p.strip())
         if dados:
             st.session_state.logado = True
-            st.session_state.user = u
+            st.session_state.user = u.strip()
             st.session_state.tipo = dados["tipo"]
             st.session_state.nome = dados["nome"]
             st.rerun()
