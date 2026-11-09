@@ -13,9 +13,8 @@ PRIORIDADES = ["baixa", "media", "alta", "critica"]
 
 
 def _manager() -> TicketManager:
-    if "ticket_manager" not in st.session_state:
-        st.session_state.ticket_manager = TicketManager()
-    return st.session_state.ticket_manager
+    # Lê do banco a cada visita: assim o admin vê na hora os chamados novos dos clientes
+    return TicketManager()
 
 
 def _criar(manager: TicketManager, eh_admin: bool) -> None:

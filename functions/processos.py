@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
-from functions.database import executar_query, executar_insert, executar_update, inicializar_banco
+from functions.database import agora, executar_query, executar_insert, executar_update, inicializar_banco
 from functions.validacoes import validar_processo
 from utils.helpers import gerar_numero_protocolo, calcular_dias_restantes
 from utils.constantes import STATUS_ATRASADO, STATUS_ATIVOS
@@ -117,7 +117,8 @@ def atualizar_processo(processo_id: int, dados: Dict[str, Any]) -> Dict[str, Any
     if not sets:
         return {"sucesso": False, "erros": ["Nenhum campo para atualizar."]}
 
-    sets.append("updated_at = datetime('now','localtime')")
+    sets.append("updated_at = ?")
+    params.append(agora())
     params.append(processo_id)
     sql = f"UPDATE processos SET {', '.join(sets)} WHERE id = ?"
     rowcount = executar_update(sql, tuple(params))
@@ -204,12 +205,12 @@ def verificar_e_atualizar_atrasados() -> int:
     placeholders = ", ".join("?" for _ in STATUS_ATIVOS)
     sql = f"""
         UPDATE processos
-        SET status = ?, updated_at = datetime('now','localtime')
+        SET status = ?, updated_at = ?
         WHERE data_prazo IS NOT NULL
           AND data_prazo < ?
           AND status IN ({placeholders})
     """
-    return executar_update(sql, (STATUS_ATRASADO, hoje) + tuple(STATUS_ATIVOS))
+    return executar_update(sql, (STATUS_ATRASADO, agora(), hoje) + tuple(STATUS_ATIVOS))
 
 
 def _to_str(valor: Any) -> Optional[str]:

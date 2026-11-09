@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import streamlit as st
 from config import APP_TITLE, APP_ICON, LAYOUT
 from functions.auth import autenticar, carregar_usuarios
+from functions.database import inicializar_banco, usa_postgres
 
 # 1. CONFIGURAÇÃO (Primeira linha sempre)
 st.set_page_config(page_title=APP_TITLE, page_icon=APP_ICON, layout=LAYOUT)
@@ -68,6 +69,17 @@ if not st.session_state.logado:
             st.rerun()
         else:
             st.error("Usuário ou senha incorretos")
+    st.stop()
+
+# 4b. BANCO DE DADOS
+try:
+    inicializar_banco()
+except Exception as erro:
+    st.error(
+        "Não foi possível conectar ao banco de dados. Confira a URL na seção "
+        "[database] dos Secrets do Streamlit."
+    )
+    st.caption(f"Detalhe técnico: {type(erro).__name__}")
     st.stop()
 
 # 5. SIDEBAR

@@ -70,6 +70,19 @@ As senhas **não ficam no código**. Elas ficam em `.streamlit/secrets.toml`, qu
 
 Tipos de usuário: `admin` (vê e gerencia tudo) e `cliente` (vê só os próprios chamados).
 
+## Banco de dados
+
+- **Produção (Streamlit Cloud):** Supabase/PostgreSQL. Coloque a URL de conexão nos Secrets, na seção `[database]` (veja `.streamlit/secrets.toml.example`). Use a URI do **Session pooler**, que funciona no Streamlit Cloud.
+- **No computador / testes:** sem a seção `[database]`, o app usa o SQLite em `data/processos.db`.
+
+As tabelas (`processos`, `eventos`, `tickets`) são criadas sozinhas no schema `regulapro`, com RLS ligado para bloquear a API pública do Supabase.
+
+Para rodar os testes contra um PostgreSQL de **teste** (o schema `regulapro` é apagado a cada teste):
+
+```bash
+REGULAPRO_TEST_PG="postgresql://..." python -m pytest tests/
+```
+
 ## Funcionalidades
 
 - **Dashboard**: KPIs, gráficos de status, processos recentes

@@ -9,6 +9,14 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 from enum import Enum
+from zoneinfo import ZoneInfo
+
+FUSO = ZoneInfo("America/Sao_Paulo")
+
+
+def _agora_iso() -> str:
+    """Data e hora atuais no fuso de Brasília (sem o sufixo de fuso)."""
+    return datetime.now(FUSO).replace(tzinfo=None).isoformat()
 
 
 class TicketStatus(Enum):
@@ -39,8 +47,8 @@ class Ticket:
         self.cliente = cliente
         self.prioridade = prioridade
         self.status = TicketStatus.ABERTO.value
-        self.data_criacao = datetime.now().isoformat()
-        self.data_atualizacao = datetime.now().isoformat()
+        self.data_criacao = _agora_iso()
+        self.data_atualizacao = _agora_iso()
         self.atribuido_para = None
         self.comentarios = []
     
@@ -49,7 +57,7 @@ class Ticket:
         try:
             TicketStatus(novo_status)
             self.status = novo_status
-            self.data_atualizacao = datetime.now().isoformat()
+            self.data_atualizacao = _agora_iso()
             return True
         except ValueError:
             return False
@@ -60,15 +68,15 @@ class Ticket:
             "id": str(uuid.uuid4())[:8],
             "autor": autor,
             "texto": texto,
-            "data": datetime.now().isoformat()
+            "data": _agora_iso()
         }
         self.comentarios.append(comentario)
-        self.data_atualizacao = datetime.now().isoformat()
+        self.data_atualizacao = _agora_iso()
     
     def atribuir_para(self, usuario: str) -> None:
         """Atribui o ticket para um usuário"""
         self.atribuido_para = usuario
-        self.data_atualizacao = datetime.now().isoformat()
+        self.data_atualizacao = _agora_iso()
     
     def to_dict(self) -> Dict:
         """Converte o ticket para dicionário"""
@@ -86,17 +94,43 @@ class Ticket:
         }
 
 
+_COLUNAS = ("id", "titulo", "descricao", "cliente", "prioridade", "status",
+            "data_criacao", "data_atualizacao", "atribuido_para", "comentarios")
+
+
+def _ticket_de_dict(ticket_id: str, info: Dict) -> "Ticket":
+    """Monta um Ticket a partir dos dados salvos (arquivo ou banco)."""
+    ticket = Ticket(
+        info.get("titulo", ""),
+        info.get("descricao", ""),
+        info.get("cliente", ""),
+        info.get("prioridade", "media"),
+    )
+    ticket.id = info.get("id") or ticket_id
+    ticket.status = info.get("status") or ticket.status
+    ticket.data_criacao = info.get("data_criacao") or ticket.data_criacao
+    ticket.data_atualizacao = info.get("data_atualizacao") or ticket.data_atualizacao
+    ticket.atribuido_para = info.get("atribuido_para")
+    comentarios = info.get("comentarios") or []
+    ticket.comentarios = json.loads(comentarios) if isinstance(comentarios, str) else comentarios
+    return ticket
+
+
 class TicketManager:
-    """Gerenciador central de tickets"""
-    
+    """Gerenciador central de tickets.
+
+    Sem argumento, guarda os chamados no banco do sistema (Supabase em produção,
+    SQLite local). Com `arquivo_dados`, usa um arquivo JSON (útil em testes).
+    """
+
     def __init__(self, arquivo_dados: Optional[str] = None):
-        if arquivo_dados is None:
-            from config import TICKETS_PATH
-            arquivo_dados = TICKETS_PATH
         self.arquivo_dados = arquivo_dados
         self.tickets: Dict[str, Ticket] = {}
         self.carregar_tickets()
-    
+
+    @property
+    def usa_banco(self) -> bool:
+        return self.arquivo_dados is None
     def criar_ticket(self, titulo: str, descricao: str, cliente: str,
                     prioridade: str = "media") -> Ticket:
         """Cria um novo ticket"""
@@ -152,38 +186,46 @@ class TicketManager:
         return True
     
     def salvar_tickets(self) -> None:
-        """Salva tickets em arquivo JSON"""
-        dados = {
-            ticket_id: ticket.to_dict()
-            for ticket_id, ticket in self.tickets.items()
-        }
+        """Grava todos os tickets no banco ou no arquivo JSON."""
+        if self.usa_banco:
+            from functions.database import executar_varios, inicializar_banco
+
+            inicializar_banco()
+            linhas = []
+            for ticket in self.tickets.values():
+                d = ticket.to_dict()
+                d["comentarios"] = json.dumps(d.get("comentarios", []), ensure_ascii=False)
+                linhas.append(tuple(d.get(c) for c in _COLUNAS))
+            atualizar = ", ".join(f"{c} = excluded.{c}" for c in _COLUNAS[1:])
+            executar_varios(
+                f"INSERT INTO tickets ({', '.join(_COLUNAS)}) "
+                f"VALUES ({', '.join('?' for _ in _COLUNAS)}) "
+                f"ON CONFLICT (id) DO UPDATE SET {atualizar}",
+                linhas,
+            )
+            return
+
+        dados = {ticket_id: ticket.to_dict() for ticket_id, ticket in self.tickets.items()}
         pasta = os.path.dirname(self.arquivo_dados)
         if pasta:
             os.makedirs(pasta, exist_ok=True)
         with open(self.arquivo_dados, "w", encoding="utf-8") as f:
             json.dump(dados, f, indent=2, ensure_ascii=False)
-    
+
     def carregar_tickets(self) -> None:
-        """Carrega tickets do arquivo JSON"""
+        """Carrega os tickets do banco ou do arquivo JSON."""
+        if self.usa_banco:
+            from functions.database import executar_query, inicializar_banco
+
+            inicializar_banco()
+            linhas = executar_query("SELECT * FROM tickets")
+            self.tickets = {linha["id"]: _ticket_de_dict(linha["id"], linha) for linha in linhas}
+            return
+
         try:
             with open(self.arquivo_dados, "r", encoding="utf-8") as f:
                 dados = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             self.tickets = {}
             return
-
-        self.tickets = {}
-        for ticket_id, info in dados.items():
-            ticket = Ticket(
-                info.get("titulo", ""),
-                info.get("descricao", ""),
-                info.get("cliente", ""),
-                info.get("prioridade", "media"),
-            )
-            ticket.id = info.get("id", ticket_id)
-            ticket.status = info.get("status", ticket.status)
-            ticket.data_criacao = info.get("data_criacao", ticket.data_criacao)
-            ticket.data_atualizacao = info.get("data_atualizacao", ticket.data_atualizacao)
-            ticket.atribuido_para = info.get("atribuido_para")
-            ticket.comentarios = info.get("comentarios", [])
-            self.tickets[ticket.id] = ticket
+        self.tickets = {tid: _ticket_de_dict(tid, info) for tid, info in dados.items()}

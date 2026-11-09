@@ -2,7 +2,6 @@
 
 import os
 import sys
-import sqlite3
 import pytest
 from datetime import date, timedelta
 
@@ -13,17 +12,27 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 @pytest.fixture(autouse=True)
 def banco_temp(tmp_path, monkeypatch):
     """
-    Substitui o DB_PATH por um banco temporário para cada teste.
-    Isolamento total: cada teste tem seu próprio banco SQLite.
+    Cada teste roda num banco limpo.
+
+    Por padrão usa um SQLite temporário. Para rodar os mesmos testes contra
+    PostgreSQL, defina REGULAPRO_TEST_PG com a URL de um banco de TESTE
+    (o schema "regulapro" é apagado antes de cada teste).
     """
+    import functions.database as db_mod
+
     db_temp = str(tmp_path / "test_processos.db")
     monkeypatch.setattr("config.DB_PATH", db_temp)
     monkeypatch.setattr("config.DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("REGULAPRO_DATABASE_URL", raising=False)
 
-    # Também corrige nos módulos já importados
-    import functions.database as db_mod
-    monkeypatch.setattr(db_mod, "DB_PATH", db_temp)
-    monkeypatch.setattr(db_mod, "DATA_DIR", str(tmp_path))
+    url_pg = os.environ.get("REGULAPRO_TEST_PG")
+    monkeypatch.setattr("config.DATABASE_URL", url_pg)
+    monkeypatch.setattr(db_mod, "_database_url", lambda: url_pg)
+    db_mod._inicializados.clear()
+    if url_pg:
+        with db_mod.get_conexao() as conn:
+            conn.execute(f"DROP SCHEMA IF EXISTS {db_mod.SCHEMA} CASCADE")
+        db_mod._inicializados.clear()
 
     yield db_temp
 

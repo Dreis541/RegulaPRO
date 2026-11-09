@@ -12,8 +12,9 @@ APP_TITLE = "RegulaPRO"
 APP_ICON = "🏢"
 LAYOUT = "wide"
 
-# Chamados de suporte
-TICKETS_PATH = os.path.join(DATA_DIR, "tickets.json")
+# Supabase/PostgreSQL: a URL fica em .streamlit/secrets.toml, seção [database].
+# Sem ela, o sistema usa o SQLite local em DB_PATH.
+DATABASE_URL = None
 
 # Usuários: ficam em .streamlit/secrets.toml (seção [usuarios]), nunca no código.
 # Veja .streamlit/secrets.toml.example e functions/auth.py.
